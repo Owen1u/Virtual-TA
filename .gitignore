@@ -1,0 +1,10 @@
+__pycache__/
+data/
+model/
+*/__pycache__/
+*.onnx
+*.pdf
+*.ppt
+test.py
+*.1.1
+*.1.1e
