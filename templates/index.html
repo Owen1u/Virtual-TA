@@ -29,7 +29,7 @@
         
         <script>
             var conv_history = JSON.stringify([]);
-            var course_list = {'ALL':'all','数字图像处理':'shutu','计算机网络':'jiwang','信号与系统':'xinhao'};
+            var course_list = {'ALL':'all','数字图像处理':'shutu','计算机网络':'jiwang','信号与系统':'xinhao','软件考试助手':'ruankao'};
             // function caption(){
             //     Notiflix.Report.info(
             //         '说 明',
@@ -76,6 +76,9 @@
           </div> -->
         <div class="collapse navbar-collapse" id="navbarNav">
           <ul class="navbar-nav" >
+            <li class="nav-item">
+                <a class="nav-link" href="#" onclick="choose_model(this)">软件考试助手</a>
+              </li>
             <li class="nav-item">
               <a class="nav-link" href="#" onclick="choose_model(this)">数字图像处理</a>
             </li>
@@ -168,7 +171,7 @@
                 document.getElementById('input_sentence').value='';
 
                 $.ajax({
-                    url:'http://58.199.162.205:34510/QA/'+course_list[modelname],
+                    url:'http://58.199.162.211:34510/QA/'+course_list[modelname],
                     contentType: "GET",
                     data: {
                         'input':input,

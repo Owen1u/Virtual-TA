@@ -8,12 +8,14 @@ from transformers import AutoTokenizer, AutoModel
 from .emb_model import Model
 import requests
 import json
+from api import api_embed,MILVUS_IP,MILVUS_PORT
 
 class Milvus():
-    def __init__(self,model:Model=None, 
-                 host:str="58.199.162.205", 
-                 port:str="19530") -> None:
-        connections.connect(host=host, port=port)
+    def __init__(self,db_name:str='default',model:Model=None, 
+                 host:str = MILVUS_IP, 
+                 port:str = MILVUS_PORT
+                 ) -> None:
+        connections.connect(host=host, port=port,db_name=db_name)
         self.model = model
         
     def load_model(self):
@@ -72,9 +74,7 @@ class Milvus():
         if self.model:
             embeddings = self.model.load(input)
         else:
-            data = {'input':input}
-            embeddings = requests.post('http://127.0.0.1:34510/embed', data=json.dumps(data))
-            embeddings = json.loads(embeddings.text)['output']
+            embeddings = api_embed(input=input)
         return embeddings
     
     def load_text(self,sentences,page:int):
@@ -87,16 +87,4 @@ class Milvus():
         embeddings = self.model_forward(sentence)
         result = self.collection.search(embeddings, anns_field='text_embedding', param={'nprobe': 512}, limit=top_k, output_fields=output_fields)
         return result
-    
-    
-    # def search_text_by_page(self,sentence:str,page:int,limit=5,output_fields=['context','page']):
-    #     with torch.no_grad():
-    #         # output = self.sim_model.encode(sentence)
-    #         # output = torch.from_numpy(output).squeeze()
-    #         # output = output.unsqueeze(0)
-    #         sentences=[sentence]
-    #         encoded_input = self.bge_tokenizer(sentences, padding=True, truncation=True, return_tensors='pt').to(self.device)
-    #         model_output = self.bge_model(**encoded_input)
-    #         sentence_embeddings = model_output[0][:, 0]
-    #     return self.collection.search(sentence_embeddings.tolist(), anns_field='text_embedding', param={'nprobe': 512},limit=limit,expr= "{0} <= page <= {1}".format(page-1,page+1), output_fields=output_fields)
     

@@ -3,14 +3,14 @@ sys.path.append('/nvme01/lmj/virtual-ta')
 import fitz
 import numpy as np
 from utils.iterable import Iterable
-from utils.ocr import ppocr,ppstructure,OcrKit
+from utils.ocr import OcrKit
 from PIL import Image
 
 class PDF(Iterable):
-    def __init__(self,path:str, max_length:int) -> None:
+    def __init__(self,path:str, max_length:int, onlyocr:bool=False) -> None:
         super().__init__()
         self.pdfDoc = fitz.open(path)
-        
+        self.onlyocr=onlyocr
         self.ocrkit = OcrKit(max_length=max_length)
     
     def __len__(self):
@@ -18,10 +18,15 @@ class PDF(Iterable):
     
     def __getitem__(self,index):
         page = self.pdfDoc[index]
-        image = self.pdf2img(page)
-        self.ocrkit.ocrinfer(image=image)
-        buf_filter_text = self.ocrkit.buf_filter_text if not self.ocrkit.is_content and self.ocrkit.has_context else []
-        return buf_filter_text
+        try:
+            image = self.pdf2img(page)
+        except:
+            print('Failed to decode JPX image')
+            return None
+        else:
+            self.ocrkit.ocrinfer(image=image,onlyocr=self.onlyocr)
+            buf_filter_text = self.ocrkit.buf_filter_text if not self.ocrkit.is_content and self.ocrkit.has_context else []
+            return buf_filter_text
     
     def pdf2img(self,page):
         zoom_x = 1.5 # horizontal zoom
@@ -33,10 +38,6 @@ class PDF(Iterable):
         image = Image.fromarray(image_array)
         return image
     
-    # def ocrinfer(self,image):
-    #     ocr = ppocr(image)
-    #     struct = ppstructure(image)
-    #     return ocr, struct
 
 if __name__=='__main__':
     pdf = PDF(path='/nvme01/lmj/virtual-ta/data/book.pdf',

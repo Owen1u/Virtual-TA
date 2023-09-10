@@ -2,23 +2,8 @@
 处理ppocr和ppstructure的结果
 '''
 from copy import deepcopy
-import requests
-import json
-from utils.convert import image2bytes
-from PIL import Image
 from .latex import LatexImage
-
-def ppocr(image:Image.Image):
-    file = {'image': image2bytes(image)}
-    rl = requests.post('http://127.0.0.1:34510/ppocr', files=file)
-    info = json.loads(rl.text)
-    return info['output']
-
-def ppstructure(image:Image.Image):
-    file = {'image': image2bytes(image)}
-    rl = requests.post('http://127.0.0.1:34510/ppstructure', files=file)
-    info = json.loads(rl.text)
-    return info['output']
+from api import api_ppocr,api_ppstructure
 
 class ocrline():
     def __init__(self,line) -> None:
@@ -50,26 +35,34 @@ class ocrline():
 处理每一页ocr的结果
 '''
 class OcrKit():
-    def __init__(self, max_length:int = 200) -> None:
+    def __init__(self, max_length:int = 200, is_title='unused') -> None:
         self.buf = ''
+        self.headandfooter=[]
         self.max_length = max_length
         self.title = ''
+        assert is_title in ['alone','attached','unused']
+        self.is_title = is_title
         self.latex = LatexImage('/nvme01/lmj/virtual-ta/latexocr')
         self.reset()
         
     def reset(self):
         self.results = []
     
-    def ocrinfer(self,image):
+    def ocrinfer(self,image,onlyocr=False):
         self.image = image
-        ocr = ppocr(image)
-        struct = ppstructure(image)
-        
         self.reset()
-        # 整理结构，文本框排序
-        self.results = self.sort_struct(struct)
+        if not onlyocr:
+            # 整理结构，文本框排序
+            struct = api_ppstructure(image)
+            self.results = self.sort_struct(struct)
+        else:
+            self.results  = self.no_struct()
+        ocr = api_ppocr(image)
         self.add_ocr(ocr)
 
+    def no_struct(self):
+        results=[{'bbox':[0,0,9999,9999],'type':'text','context':[[]]}]
+        return results
     def sort_struct(self,struct):
         results=[]
         for region in struct:
@@ -79,13 +72,15 @@ class OcrKit():
     
     def add_ocr(self,ocr):
         # 判断是否缩进
-        x0 = []
+        x0 = [9999]
         for res in ocr:
             for i,line in enumerate(res):
-                x0.append(ocrline(line).bbox[0])
+                for region in self.results:
+                    if region['type']=='text' and self.intersection(region['bbox'],ocrline(line).bbox):
+                        x0.append(ocrline(line).bbox[0])
         watershed_left = min(x0)+10
         # unused
-        x1 = []
+        x1 = [0]
         for res in ocr:
             for i,line in enumerate(res):
                 x1.append(ocrline(line).bbox[2])
@@ -106,7 +101,7 @@ class OcrKit():
                 for i,line in enumerate(res):
                     bbox = region['bbox']
                     if self.intersection(bbox,ocrline(line).bbox):
-                        if ocrline(line).bbox[0] > watershed_left and ocrline(line).context[0] not in '([{（【「':
+                        if ocrline(line).bbox[0] > watershed_left and ocrline(line).context[0] not in '([{（【「●①②③④⑤⑥⑦⑧⑨' and ocrline(line).context[:2] not in 'A.B.C.D.E.F.1）2）3）4）5）6）7）8）9）' and (i and ocrline(res[i-1]).context[-1] not in ':：,，;；'):
                             self.results[j]['context'].append([ocrline(line).context])
                         else:
                             self.results[j]['context'][-1].append(ocrline(line).context)
@@ -137,24 +132,6 @@ class OcrKit():
         t = [res['context'] for res in self.results if res['type']=='text']
         return True if t else False
     
-    # def merge_text(self,contexts:list[str]):
-    #     result=[]
-    #     for res in contexts:
-    #         if self.has_context and res['type']in ['title']:
-    #             for title in res['context']:
-    #                 if title[-1] not in ',.?!;，。？！；…':
-    #                     result.append(title+'.')
-    #                 else:
-    #                     result.append(title)
-    #         elif res['type']in ['text']:
-    #             result.extend(res['context'])
-    #     # result=[''.join(res['context']) for res in contexts if res['type']in ['text','title']]
-    #     for i,res in enumerate(result):
-    #         if res[-1] not in '。.!！?？;；…'and res!=result[-1]:
-    #             result[i+1] = res+result[i+1]
-    #             result.remove(res)
-    #     return result
-    
     def merge_text(self,contexts:list[str]):
         result=[]
         for res in contexts:
@@ -163,10 +140,20 @@ class OcrKit():
                     self.title = title
                     if title[-1] not in ',.?!;，。？！；…':
                         self.title+=':'
+                    if self.is_title == 'alone':
+                        result.append(title)
             elif res['type']in ['text']:
                 for text in res['context']:
-                    result.append(self.title+text)
-                    self.title=''
+                    if text in self.headandfooter:
+                        continue                     
+                    if self.is_title == 'attached':
+                        result.append(self.title + text)
+                    else:
+                        result.append(text)
+                    # self.title=''
+            elif res['type']in ['header','footer','reference']:
+                if res['context'] not in self.headandfooter:
+                    self.headandfooter.extend(res['context'])
         for i,res in enumerate(result):
             if res[-1] not in '。.!！…' and res!=result[-1]:
                 result[i+1] = res+result[i+1]
@@ -176,7 +163,10 @@ class OcrKit():
     def buf_filter_text(self):
         merged_text = self.merge_text(self.results)
         if self.buf != '':
-            merged_text[0] = self.buf + merged_text[0]
+            if merged_text:
+                merged_text[0] = self.buf + merged_text[0]
+            else:
+                merged_text.append(self.buf)
             self.buf=''
         if merged_text:
             if merged_text[-1][-1] not in '。.！!；;…':
@@ -199,6 +189,9 @@ class OcrKit():
                     if len(r)+i+1 <= self.max_length:
                         r += s[:i+1]
                         s = s[i+1:] if i+1 != len(s) else []
+                    elif i+1>self.max_length and r=='':
+                        result.append(s[:self.max_length])
+                        s = s[self.max_length:]
                     else:
                         result.append(r)
                         r=''

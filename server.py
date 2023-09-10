@@ -3,7 +3,7 @@ import json
 from flask import Flask,jsonify,request,session
 from flask import render_template,make_response
 from flask_cors import CORS
-from database import Milvus, BGE
+from database import BGE
 from paddleocr import PaddleOCR,PPStructure
 from search import search
 
@@ -13,8 +13,8 @@ app = Flask(__name__)
 CORS(app, supports_credentials=True)
 app.config['SECRET_KEY']=os.urandom(24)
 
-embed_model = BGE(model = 'BAAI/bge-large-zh',
-            path = '/nvme01/lmj/virtual-ta/model',
+embed_model = BGE(model = '/nvme01/lmj/virtual-ta/model/models--BAAI--bge-large-zh/snapshots/1b543b301eb63dd32914b56d939db2a972df15d5',
+            path = '.model',
             device = 'cuda:0')
 paddle_ocr = PaddleOCR(use_angle_cls=False, lang="ch",use_gpu=True)
 paddle_structure = PPStructure(use_gpu=True)
@@ -51,7 +51,16 @@ def all():
         output = search(['{0}_book_ppt'.format(course) for course in COURSES],_input)
         results = dict(input=_input, output=output)
         return jsonify(results)
-
+    
+@app.route('/QA/ruankao',methods=['GET'])
+def ruankao():
+    if request.method == 'GET':
+        _input = request.args.get('input')
+        output, citation = search(db_name = 'ruankao',collection_name = ['book1','book2','book3','book4'], input = _input)
+        if citation:
+            output+='\n您可参考: {0}'.format(citation)
+        results = dict(input=_input, output=output)
+        return jsonify(results)
 
 for course in COURSES:
     code = '''

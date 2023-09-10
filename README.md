@@ -1,23 +1,32 @@
-# Virtual Teaching Assistant
+# <center> Virtual Teaching Assistant
+<div align=center><img src="architecture.png"></div>
 
-![architecture](architecture.png#pic_center)
+## Update (version-1.0)
+- OCR后的数据如出现有序/无序列表，将作为完整的样本存入数据库（除非超出最大字符数），最大字符数从300扩大为500。
+- 将工程中所有的api放置于`api.py`中。
+- 数据库特征比较的方法由L1改为L2距离，`distance`有更好的一致性，可以更公平地比较不同书目或数据长度的内容信息。
+- 为适应软件考试助手的功能：
+    - 新建`config/documents.yaml`和`config/cfg.py`，用于映射各个数据库表对应的书目名称。
+    - `load_data.py`中新增针对例题解析的处理方法`load_pdf_jiexi`。
+    - 将`citation`（引用书目的名称和页数）从`search.py`方法的返回值中独立出来，以便应对无需索引页数的场景，如：真题。对于真题，在数据库存储的时候，页数设为0或-1。
 
 ## TODO
-- [ ] 增加图像/图像-文本特征编码器
-- [ ] 加入程序理解和生成功能
-- [ ] 逻辑增强与内容准确性提升
+- [x] 数据库数据优化（调整token_max_length为500，并将排列信息规整在一起）
+- [ ] OCR表格处理
+- [ ] 大模型并发/队列
 
 ## Directory
-server.py: 启动（数据库的）文本特征编码模型、文档OCR模型、数据库检索端口和网页端口</br>
-load_data.py: 往数据库加载文档</br>
-request.py: 测试对话功能</br>
-static/: 存放网页图片、样式文件</br>
-templates/: 网页文件</br>
-model/: 存放大模型文件</br>
-latexocr/models/: 存放latexocr模型</br>
-LLM/: 启动大模型端口的文件</br>
-utils/: 文档内容处理的文件</br>
-database/: 操作向量数据库和特征模型的文件</br>
+`server.py`: 启动（数据库的）文本特征编码模型、文档OCR模型、数据库检索端口和网页端口</br>
+`api.py`: 调用各功能的ip和方法</br>
+`load_data.py`: 往数据库加载文档</br>
+`request.py`: 测试对话功能</br>
+`static/`: 存放网页图片、样式文件</br>
+`templates/`: 网页文件</br>
+`model/`: 存放大模型文件</br>
+`latexocr/models/`: 存放latexocr模型</br>
+`LLM/`: 启动大模型端口的文件</br>
+`utils/`: 文档内容处理的文件</br>
+`database/`: 操作向量数据库和特征模型的文件</br>
 
 ## Install
 `requirement.txt`有很多用不到的库，不建议全部安装，除非偷懒
@@ -113,6 +122,15 @@ pip3 install flask flask_cors
 如果服务器算力有限，可将大模型部署于单独的运算平台。注意对齐ip地址和端口号。
 4. 测试系统是否通畅</br>
 运行`request.py`，顺利输出结果即可。
+
+## Create new database
+```python
+from pymilvus import connections, db
+
+conn = connections.connect(host="127.0.0.1", port=19530)
+
+database = db.create_database("book")
+```
 
 ## Contact
 If you have any question or suggestion related to this project, feel free to open an issue or pull a request. You also can email Minjun Lu(luminjun@shu.edu.cn)

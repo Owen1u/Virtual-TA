@@ -3,15 +3,23 @@ from pprint import pprint
 import requests
 import json
 from collections.abc import Iterable
+from config import get_document_dict
+from api import api_llm
+
+doc_dict = get_document_dict('./config/documents.yaml')
 
 class MilvusResults():
-    def __init__(self,results=None) -> None:
+    def __init__(self,dbname=None,collection_name=None,results=None) -> None:
         self.results=[]
-        if results:
+        if dbname and collection_name and results:
             for result in results:
                 for entry in result:
                     entry_dict={}
-                    entry_dict['page'] = entry.entity.get("page")
+                    page = entry.entity.get("page")
+                    if page>0:
+                        entry_dict['page'] = '{0}-第{1}页'.format(doc_dict[dbname][collection_name],page)
+                    else:
+                        entry_dict['page'] = '{0}'.format(doc_dict[dbname][collection_name])
                     entry_dict['context'] = entry.entity.get("context")
                     entry_dict['distance'] = entry.distance
                     self.results.append(entry_dict)
@@ -33,6 +41,10 @@ class MilvusResults():
                 break
             contexts.append(res['context'])
         return contexts
+    
+    @property
+    def perfect_page(self):
+        return self.results[0]['page'],self.results[0]['distance']
 
 def clip(x,min,max):
     if x<min:
@@ -41,31 +53,43 @@ def clip(x,min,max):
         x=max
     return x
     
-def search(collection_name, input):
+def search(db_name, collection_name, input):
     if isinstance(collection_name,str):
         collection_name=[collection_name]
     assert isinstance(collection_name,list)
     
-    milvus = Milvus()
+    milvus = Milvus(db_name=db_name)
     results = MilvusResults()
+    # page = 0 
+    # distance = 9999
     for collection in collection_name:
         milvus.load_collection(collection)    # 一个中文占三位
-        results += MilvusResults(milvus.search_text('为这个句子生成表示以用于检索相关文章：'+input,top_k=3))
+        current = MilvusResults(db_name, collection, milvus.search_text('为这个句子生成表示以用于检索相关文章：'+input, top_k=3))
+        print(milvus.search_text('为这个句子生成表示以用于检索相关文章：'+input, top_k=5))
+        # current_page,current_distance=current.perfect_page
+        # if current_distance<distance:
+        #     distance = current_distance
+        #     page = current_page
+        results += current
 
-    prompts = results.perfect_contexts(top_k=clip(len(collection_name)*2,3,6))
+    # prompts = results.perfect_contexts(top_k=clip(len(collection_name)*2,3,6))
+    prompts = results.perfect_contexts(top_k=3)
     prompts = str(prompts)
+    page,distance = results.perfect_page
+    print('Question:',input,end='\n\n')
     print('prompt:',prompts, end='\n\n')
+    print('distance:',distance, end='\n\n')
 
-    noun='''
-    高斯=Gauss；傅立叶=傅里叶=Fourier；巴特沃斯=Butterworth；贝塞尔=Bessel；拉普拉斯=Laplace；香农=Shannon；
-    '''
+    limit = '你是一个课程助教，禁止回答无关课程的内容。'
+    input = '以下是检索到课本中的相关内容：\n{1}\n问题：{0}\n{2}'.format(input,prompts,limit)
+    output = api_llm(input)
     
-    limit = '你是一个课程助教，只能回答有关学术课程的内容。'
-    params = {'input':'以下是检索到课本中的相关内容：\n{1}\n专有名词：{3}\n问题：{0}\n{2}'.format(input,prompts,limit,noun),
-           'history': []}
-    rl = requests.get('http://58.199.163.176:34503/chat', params=params)
-    info = json.loads(rl.text)
-    return info['output']
+    if page and results.results[0]['distance']<= 0.65:
+        citation = page
+    else:
+        citation = None
+    print("A:",output,end='\n\n')
+    return output, citation
 
 
 if __name__=='__main__':
@@ -76,5 +100,5 @@ if __name__=='__main__':
     # info = json.loads(rl.text)
     # print(info['output'])
     
-    res = search(collection_name = 'jiwang_book_ppt',
-           input = '')
+    res = search(db_name = 'ruankao',collection_name = ['book1','book2','book3','book4'],
+           input = '什么是车联网？')
