@@ -12,7 +12,7 @@
     <!-- <script src="https://cdn.jsdelivr.net/npm/jquery@3.5.1/dist/jquery.slim.min.js"></script> -->
     <script src="https://cdn.jsdelivr.net/npm/popper.js@1.16.1/dist/umd/popper.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.2/dist/js/bootstrap.min.js"></script>
-    
+    ​<meta name="viewport" content="width=device-width, initial-scale=1" />
   </body>
 
 </head>
@@ -102,7 +102,7 @@
         </div>
     </nav>
 
-    <div class="context" id="context" style="height:65%">
+    <div class="context" id="context" style="height:60%">
         <!-- <blockquote class="dialog">
             <svg t="1654598627424" class="icon" viewBox="0 0 1024 1024" version="1.1" xmlns="http://www.w3.org/2000/svg" p-id="1379" width="30" height="30"><path d="M661.333333 490.666667c-36.266667 0-64 27.733333-64 64s27.733333 64 64 64 64-27.733333 64-64-27.733333-64-64-64M362.666667 490.666667c-36.266667 0-64 27.733333-64 64s27.733333 64 64 64 64-27.733333 64-64-27.733333-64-64-64" fill="#2F3CF4" p-id="1380"></path><path d="M128 320c0-23.466667 19.2-42.666667 42.666667-42.666667h170.666666l-61.866666-155.733333c-8.533333-21.333333 2.133333-46.933333 23.466666-55.466667 21.333333-8.533333 46.933333 2.133333 55.466667 23.466667l74.666667 185.6h155.733333l74.666667-185.6c8.533333-21.333333 34.133333-32 55.466666-23.466667 21.333333 8.533333 32 34.133333 23.466667 55.466667L682.666667 277.333333h170.666666c23.466667 0 42.666667 19.2 42.666667 42.666667v597.333333c0 23.466667-19.2 42.666667-42.666667 42.666667H170.666667c-23.466667 0-42.666667-19.2-42.666667-42.666667V320z m85.333333 42.666667v512h597.333334V362.666667H213.333333zM1024 725.333333V512c0-23.466667-19.2-42.666667-42.666667-42.666667s-42.666667 19.2-42.666666 42.666667v213.333333c0 23.466667 19.2 42.666667 42.666666 42.666667s42.666667-19.2 42.666667-42.666667M42.666667 768c23.466667 0 42.666667-19.2 42.666666-42.666667V512c0-23.466667-19.2-42.666667-42.666666-42.666667s-42.666667 19.2-42.666667 42.666667v213.333333c0 23.466667 19.2 42.666667 42.666667 42.666667" fill="#2F3CF4" p-id="1381"></path></svg>
             <a>请问有什么能帮助您的嘛？</a>
@@ -112,10 +112,26 @@
                 <pre style="white-space: pre-wrap; word-wrap: break-word;">欢迎来到GREAT LLM平台！</pre>
             </blockquote>
     </div>
-    <textarea class="input-css" id='input_sentence' placeholder="输入对话内容" style="height:5%;width:55%;min-height:50px;min-width:70px;max-height:50px;max-width:60%;"></textarea>
+    <div style="width: 90%;margin-left: 5%;">
+        <div style="width: 100%;float: left;">
+            <div class="custom-file" style="width: 40%; float: left; margin-bottom: 10px;">
+                <input type="file" class="custom-file-input" id="imagefile" onchange="handleimage();">
+                <label class="custom-file-label" for="imagefile" id="imagelabel">选择本地图片……</label>
+            </div>
+            <input type="button" class="btn btn-outline-warning" value="重置会话" onclick="confirm_reset(this)" style="float: right;"/>
+            <input type="button" class="btn btn-primary" value="发 送" onclick="send()" style="float: right;margin-right: 10px;"/>
+            <input type="button" class="btn btn-primary" value="清除图片" onclick="clearimage()" style="float: left;margin-left: 10px;"/>
+            <div class="form-group">
+                <!-- <label for="input_sentence">提问</label> -->
+                <textarea class="form-control" id="input_sentence" rows="3" placeholder="输入问题..."></textarea>
+            </div>
+        </div>
+        
+    </div>
+    
     <div style="margin-top: -5%;">
-        <input type="button" class="button-css" value="确 定" onclick="send()" style="margin-left: 65%"/>
-        <input type="button" class="button-css" value="重置会话" onclick="confirm_reset(this)" style="margin:-8% 8% 0% 0%;float: right;"/>
+        
+        
     </div>
     <script>
         function confirm_reset(e){
@@ -152,16 +168,32 @@
         }
         
         function all_send(modelname){
-            
-            Notiflix.Loading.dots('Loading...',{
-                clickToClose: true,
-                backgroundColor: 'rgba(0,0,0,0.8)',
-            });
             var input = document.getElementById('input_sentence').value;
-            if (input==""){
+            var image = document.getElementById('imagefile').files[0];
+            if (image){
+                var reader = new FileReader();
+                    reader.onload = function(){
+                        let _img = new Image();
+                        _img.src = this.result;
+                        let ratio = _img.height/_img.width;
+                        var block = document.createElement("blockquote");
+                        // block.setAttribute('class','image');
+                        // block.setAttribute('onclick','NLU(this);');
+                        console.log(ratio);
+                        block.innerHTML='<img src="'+this.result+'" style="width:500px;height:'+500*ratio+'px;" class="figure-img"/>';
+                        div.appendChild(block);
+                };
+                reader.readAsDataURL(image);
+            }
+            console.log(image)
+            if (input=="" && image==undefined){
                 Notiflix.Notify.warning('输入内容为空');
             }
             else{
+                Notiflix.Loading.dots('Loading...',{
+                    clickToClose: true,
+                    backgroundColor: 'rgba(0,0,0,0.8)',
+                });
                 var div = document.getElementById('context');
                 var block = document.createElement("blockquote");
                 block.setAttribute('class','dialog');
@@ -170,18 +202,20 @@
                 div.appendChild(block);
                 document.getElementById('input_sentence').value='';
 
+                var form_data = new FormData();
+                form_data.append('text',input);
+                form_data.append('image',image);
+                
+
                 $.ajax({
                     url:'http://58.199.162.211:34510/QA/'+course_list[modelname],
-                    contentType: "GET",
-                    data: {
-                        'input':input,
-                        'task': 'text-generation',
-                        'max_new_tokens':150,
-                        'early_stopping':true,
-                        'history': conv_history
-                    },
+                    type:'POST',
+                    contentType:false,
+                    dataType : "json",
+                    processData: false, 
+                    data:form_data,
                     success:function(res){
-                        
+                        clearimage();
                         var div = document.getElementById('context');
                         var block = document.createElement("blockquote");
                         block.setAttribute('class','dialog');
@@ -191,12 +225,20 @@
                         Notiflix.Loading.remove();
                         console.log(res.output)
                         // conv_history=JSON.stringify(res.history).slice(1,-1);
+                        document.getElementById('context').scrollTop=document.getElementById('context').scrollHeight;
                     },
                     error:function(res){
                         Notiflix.Loading.remove();
                     }
                 })
             }
+        }
+        function clearimage(){
+            document.getElementById('imagefile').value="";
+            document.getElementById('imagelabel').innerHTML="选择本地图片……";
+        }
+        function handleimage(){
+            document.getElementById('imagelabel').innerHTML = document.getElementById('imagefile').files[0].name;
         }
     </script>
     

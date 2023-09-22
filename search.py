@@ -53,11 +53,11 @@ def clip(x,min,max):
         x=max
     return x
     
-def search(db_name, collection_name, input):
+def search(db_name, collection_name, input, img_prompt:list=None):
     if isinstance(collection_name,str):
         collection_name=[collection_name]
     assert isinstance(collection_name,list)
-    
+    input = str(input)
     milvus = Milvus(db_name=db_name)
     results = MilvusResults()
     # page = 0 
@@ -74,14 +74,21 @@ def search(db_name, collection_name, input):
 
     # prompts = results.perfect_contexts(top_k=clip(len(collection_name)*2,3,6))
     prompts = results.perfect_contexts(top_k=3)
+    # if img_prompt:
+    # #     img_prompt.extend(prompts)
+    # #     prompts = img_prompt
+    #     prompts.extend(img_prompt)
     prompts = str(prompts)
+    img_prompt = str(img_prompt)
+    # prompts = prompts[:2048] if len(prompts)>2048 else prompts
     page,distance = results.perfect_page
     print('Question:',input,end='\n\n')
     print('prompt:',prompts, end='\n\n')
+    print('img_prompt',img_prompt, end='\n\n')
     print('distance:',distance, end='\n\n')
 
-    limit = '你是一个课程助教，禁止回答无关课程的内容。'
-    input = '以下是检索到课本中的相关内容：\n{1}\n问题：{0}\n{2}'.format(input,prompts,limit)
+    limit = '你是一个课程助教，禁止回答与课程或提示无关的内容。'
+    input = '以下是检索到课本中的相关内容：{1}\n重要信息：{3}\n问题：{0}\n{2}'.format(input,prompts,limit,img_prompt)
     output = api_llm(input)
     
     if page and results.results[0]['distance']<= 0.65:

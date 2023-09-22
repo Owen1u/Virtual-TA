@@ -27,6 +27,12 @@ def api_ppstructure(image:Image.Image):
     info = json.loads(rl.text)
     return info['output']
 
+def api_pptable(image:Image.Image):
+    file = {'image': image2bytes(image)}
+    rl = requests.post('http://10.0.0.20:34519/pptable', files=file)
+    info = json.loads(rl.text)
+    return info['output']
+
 def api_embed(input:Union[str,list]):
     data = {'input':input}
     embeddings = requests.post('http://127.0.0.1:34510/embed', data=json.dumps(data))
@@ -36,7 +42,7 @@ def api_embed(input:Union[str,list]):
 def api_llm(input:str,history:list=[]):
     params = {'input': input,
               'history': history}
-    rl = requests.get('http://10.0.0.20:34503/chat', params=params)
+    rl = requests.get('http://10.0.0.20:34504/chat', params=params)
     info = json.loads(rl.text)
     output = info['output']
     return output

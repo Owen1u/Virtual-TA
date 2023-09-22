@@ -1,11 +1,14 @@
 import os
 import json
+from io import BytesIO
+from PIL import Image
 from flask import Flask,jsonify,request,session
 from flask import render_template,make_response
 from flask_cors import CORS
 from database import BGE
 from paddleocr import PaddleOCR,PPStructure
 from search import search
+from api import api_pptable
 
 COURSES = ['shutu','jiwang','xinhao']
 
@@ -44,6 +47,20 @@ def ppstructure():
         results = [{'bbox':region['bbox'],'type':region['type']} for region in output]
         return jsonify({'output':results})
 
+@app.route('/pptable',methods=['POST'])     
+def pptable():
+    if request.method == 'POST':
+        _input = request.files['image']
+        _output = paddle_structure(_input.read())        #版面识别+表格识别
+        output = []
+        for results in _output:
+            if results['type']=='table':
+                output.append(results['res']['html'])
+            else:
+                for result in results['res']:
+                    output.append(result['text'])
+        return jsonify({'output':output})
+
 @app.route('/QA/all',methods=['GET'])
 def all():
     if request.method == 'GET':
@@ -52,11 +69,28 @@ def all():
         results = dict(input=_input, output=output)
         return jsonify(results)
     
-@app.route('/QA/ruankao',methods=['GET'])
+@app.route('/QA/ruankao',methods=['GET','POST'])
 def ruankao():
     if request.method == 'GET':
         _input = request.args.get('input')
         output, citation = search(db_name = 'ruankao',collection_name = ['book1','book2','book3','book4'], input = _input)
+        if citation:
+            output+='\n您可参考: {0}'.format(citation)
+        results = dict(input=_input, output=output)
+        return jsonify(results)
+    if request.method == 'POST':
+        try:
+            img = request.files['image'].read()
+            img = Image.open(BytesIO(img))
+            prompt = api_pptable(img)
+            print(prompt)
+        except:
+            prompt=[]
+        _input = request.form['text']
+        if prompt and not _input:
+            output, citation = search(db_name = 'ruankao',collection_name = ['book1','book2','book3','book4'], input = prompt)
+        else:
+            output, citation = search(db_name = 'ruankao',collection_name = ['book1','book2','book3','book4'], input = _input, img_prompt=prompt)
         if citation:
             output+='\n您可参考: {0}'.format(citation)
         results = dict(input=_input, output=output)
